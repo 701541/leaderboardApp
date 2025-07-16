@@ -1,68 +1,64 @@
-import React, { useEffect, useState } from "react";
-import './App.css'; // ✅ Make sure App.css exists in src/
-
-const API = "http://localhost:5000"; // Change this if your backend runs on a different port
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import './App.css';
 
 function App() {
   const [users, setUsers] = useState([]);
-  const [selectedUserId, setSelectedUserId] = useState("");
-  const [newUserName, setNewUserName] = useState("");
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [lastClaim, setLastClaim] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [randomPoints, setRandomPoints] = useState(null);
+  const [newUserName, setNewUserName] = useState('');
+
+  const backendURL = 'http://localhost:5000';
+
+  // Fetch users
+  const fetchUsers = async () => {
+    try {
+      const res = await axios.get(backendURL + '/api/users');
+      setUsers(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     fetchUsers();
-    fetchLeaderboard();
   }, []);
 
-  const fetchUsers = async () => {
-    const res = await fetch('${API}/users');
-    const data = await res.json();
-    setUsers(data);
-  };
-
-  const fetchLeaderboard = async () => {
-    const res = await fetch('${API}/leaderboard');
-    const data = await res.json();
-    setLeaderboard(data);
-  };
-
-  const addUser = async () => {
+  const handleAddUser = async () => {
     if (!newUserName.trim()) return;
-    await fetch('${API}/users', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newUserName }),
-    });
-    setNewUserName("");
-    fetchUsers();
-    fetchLeaderboard();
+    try {
+      await axios.post(backendURL + '/api/users', { name: newUserName });
+      setNewUserName('');
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const claimPoints = async () => {
+  const handleClaim = async () => {
     if (!selectedUserId) return;
-    const res = await fetch('${API}/claim', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: selectedUserId }),
-    });
-    const data = await res.json();
-    setLastClaim('🎉 ${data.name} claimed ${data.points} points!');
-    fetchUsers();
-    fetchLeaderboard();
+    try {
+      const res = await axios.post(backendURL + '/api/claim', {
+        userId: selectedUserId,
+      });
+      setRandomPoints(res.data.randomPoints);
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
     <div className="container">
-      <h1 className="title">🎯 User Points Leaderboard</h1>
+      <h1>🏆 User Points Leaderboard</h1>
 
-      <div style={{ marginBottom: "20px" }}>
+      <div className="card">
+        <h2>Select User</h2>
         <select
-          className="select-box"
           value={selectedUserId}
           onChange={(e) => setSelectedUserId(e.target.value)}
         >
-          <option value="">-- Select a User --</option>
+          <option value="">-- Select a user --</option>
           {users.map((user) => (
             <option key={user._id} value={user._id}>
               {user.name}
@@ -70,44 +66,47 @@ function App() {
           ))}
         </select>
 
-        <button className="button" onClick={claimPoints}>
-          Claim Points
-        </button>
+        <button onClick={handleClaim}>Claim Points</button>
+
+        {randomPoints && (
+          <p className="points">🎉 Random Points Claimed: {randomPoints}</p>
+        )}
       </div>
 
-      {lastClaim && <p className="message">{lastClaim}</p>}
-
-      <div style={{ marginBottom: "20px" }}>
+      <div className="card">
+        <h2>Add New User</h2>
         <input
-          className="input-box"
           type="text"
-          placeholder="Enter new user"
           value={newUserName}
           onChange={(e) => setNewUserName(e.target.value)}
+          placeholder="Enter name"
         />
-        <button className="button button-blue" onClick={addUser}>
-          Add User
-        </button>
+        <button onClick={handleAddUser}>Add User</button>
       </div>
 
-      <table className="leaderboard-table">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Name</th>
-            <th>Total Points</th>
-          </tr>
-        </thead>
-        <tbody>
-          {leaderboard.map((user, index) => (
-            <tr key={user._id}>
-              <td>{index + 1}</td>
-              <td>{user.name}</td>
-              <td>{user.points}</td>
+      <div className="card leaderboard">
+        <h2>Leaderboard</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Name</th>
+              <th>Total Points</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {users
+              .sort((a, b) => b.points - a.points)
+              .map((user, index) => (
+                <tr key={user._id}>
+                  <td>{index + 1}</td>
+                  <td>{user.name}</td>
+                  <td>{user.points}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
